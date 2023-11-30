@@ -1,0 +1,10 @@
+AI command execution to facilitate debugging and setup of systems
+AI development assist
+AI git management
+AI email management/smtp server
+Voice-based AI notes management
+push notification api
+datastore and management
+personal website and management framework
+automated application security auditor
+

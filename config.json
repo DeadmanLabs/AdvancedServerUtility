@@ -1,0 +1,16 @@
+{
+    "endpoint": "localhost",
+    "port": 3000,
+    "ssl": {
+        "key": "sslcert/server.key",
+        "cert": "sslcert/server.crt"
+    },
+    "audio": {
+        "transcriber": "gpt-3.5-turbo-16k",
+        "whisperPath": "whisper.exe",
+        "whisperModel": "small.en"
+    },
+    "vectorstores": {
+        "type": "chroma"
+    }
+}
