@@ -1,0 +1,18 @@
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevents overflow from the whole page */
+}
+
+body, #root {
+  display: flex;
+  flex-direction: column;
+}
+
+.App {
+  display: flex;
+  flex-direction: column;
+  flex: 1; /* Allow the App to fill the parent's height */
+  overflow: hidden; /* Prevents overflow from the App */
+}
