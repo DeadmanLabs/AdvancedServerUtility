@@ -64,6 +64,60 @@ const getAudioDuration = (filename) => {
         });
 };
 
+async function createVectorstore(datastoreName) {
+    if (fs.existsSync(`datastores/${datastoreName}`)) {
+        throw new Error(`Failed! Datastore already exists.`);
+    }
+    fs.mkdirSync(`datastores/${datastoreName}`);
+    console.log(`[+] - Created datastore ${datastoreName}!`);
+}
+
+async function listVectorstore() {
+    if (!fs.existsSync('datastores')) {
+        return [];
+    }
+    fs.readdir('datastores', (err, files) => {
+        if (err) {
+            throw err;
+        }
+        return files;
+    })
+}
+
+async function listVectorstoreContents(datastoreName) {
+    if (!fs.existsSync(`datastores/${datastoreName}`)) {
+        throw new Error('Failed! Datastore does not exist.');
+    }
+    function readFilesRecursively(dir, allFiles = []) {
+        let allFiles = [];
+        fs.readdir(dir, (err, files) => { 
+            files.forEach(file => {
+                const filePath = path.join(dir, file);
+                if (fs.statSync(filePath).isDirectory()) {
+                    readFilesRecursively(filePath, allFiles);
+                } else {
+                    allFiles.push(filePath);
+                }
+            });
+        });
+        return allFiles;
+    }
+    const files = readFilesRecursively(`datastores/${datastoreName}`);
+    const urlFiles = [];
+    // Filter for urls.txt files
+    let allUrls = [];
+    urlFiles.forEach(file => {
+        if (fs.existsSync(file)) {
+            const data = fs.readFileSync(urlsFilePath, 'utf8');
+            const urls = data.split(/\r?\n/);
+            urls.forEach(url => {
+                allUrls.push(url);
+            });
+        }
+    });
+    return { files: filteredFiles, urls: allUrls };
+}
+
 async function sleep(ms) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
@@ -190,6 +244,8 @@ app.post('/audio/transcribe', audioupload.single('audio'), async (req, res) => {
 });
 
 app.post('', () => {})
+
+//Create default self vectorstore
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
