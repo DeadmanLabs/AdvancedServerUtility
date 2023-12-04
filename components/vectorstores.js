@@ -61,6 +61,56 @@ const { ArduinoLoader } = require('./loaders/ArduinoLoader');
 
 
 const fs = require('fs');
+const path = require('path')
+
+function createDatastore(datastoreName) {
+    if (fs.existsSync(`datastores/${datastoreName}`)) {
+        throw new Error(`Failed! Datastore already exists.`);
+    }
+    fs.mkdirSync(`datastores/${datastoreName}`);
+    return;
+}
+
+async function listDatastore() {
+    if (!fs.existsSync('datastores')) {
+        return [];
+    }
+    fs.readdir('datastores', (err, files) => {
+        if (err) {
+            throw err;
+        }
+        return files;
+    })
+}
+
+async function listDatastoreContents(datastoreName) {
+    const datastorePath = `datastores/${datastoreName}`;
+    if (!fs.existsSync(datastorePath)) {
+        throw new Error('Failed! Datastore does not exist.');
+    }
+    async function readFilesRecursively(dir) {
+        const filesInDir = await fs.promises.readdir(dir);
+        const files = await Promise.all(filesInDir.map(async file => {
+            const filePath = path.join(dir, file);
+            const stat = await fs.promises.stat(filePath);
+            if (stat.isDirectory()) {
+                return readFilesRecursively(filePath);
+            } else {
+                return filePath;
+            }
+        }));
+        return files.flat();
+    }
+    const files = await readFilesRecursively(datastorePath);
+    const urlFiles = files.filter(file => path.basename(file) === 'urls.txt');
+    const allUrlsSet = new Set();
+    for (const urlFile of urlFiles) {
+        const data = await fs.promises.readFile(urlFile, 'utf8');
+        const urls = data.split(/\r?\n/);
+        urls.forEach(url => allUrlsSet.add(url));
+    }
+    return { files: files.filter(file => !urlFiles.includes(file)), urls: Array.from(allUrlsSet) };
+}
 
 async function createVectorstore(name) {
     const embeddings = new HuggingFaceInferenceEmbeddings();
@@ -74,7 +124,6 @@ async function createVectorstore(name) {
     await vectorStore.ensureCollection();
     return vectorStore;
 }
-
 
 async function addDocument(vectorstore, filePath) {
     const fileType = path.extname(filePath).slice(1);
@@ -245,3 +294,11 @@ async function addTwitterThread(vectorstore, url) {
     // ... Here ...
 }
 
+export {
+    createVectorstore,
+    addDocument,
+    addDirectory,
+    createDatastore,
+    listDatastore,
+    listDatastoreContents
+};

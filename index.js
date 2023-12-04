@@ -5,6 +5,8 @@ const path = require('path');
 const cors = require('cors');
 const childProcess = require('child_process');
 
+const vectorstores = require('./components/vectorstores');
+
 const app = express();
 const port = 3000;
 const config = JSON.parse(fs.readFileSync('config.json', 'utf8'));
@@ -12,6 +14,10 @@ const config = JSON.parse(fs.readFileSync('config.json', 'utf8'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cors({}));
+
+const knowledgeBase = {
+
+};
 
 const vectorstorage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -64,58 +70,59 @@ const getAudioDuration = (filename) => {
         });
 };
 
-async function createVectorstore(datastoreName) {
-    if (fs.existsSync(`datastores/${datastoreName}`)) {
-        throw new Error(`Failed! Datastore already exists.`);
-    }
-    fs.mkdirSync(`datastores/${datastoreName}`);
-    console.log(`[+] - Created datastore ${datastoreName}!`);
-}
-
-async function listVectorstore() {
-    if (!fs.existsSync('datastores')) {
-        return [];
-    }
-    fs.readdir('datastores', (err, files) => {
-        if (err) {
-            throw err;
-        }
-        return files;
-    })
-}
-
-async function listVectorstoreContents(datastoreName) {
-    if (!fs.existsSync(`datastores/${datastoreName}`)) {
-        throw new Error('Failed! Datastore does not exist.');
-    }
-    function readFilesRecursively(dir, allFiles = []) {
-        let allFiles = [];
-        fs.readdir(dir, (err, files) => { 
-            files.forEach(file => {
-                const filePath = path.join(dir, file);
-                if (fs.statSync(filePath).isDirectory()) {
-                    readFilesRecursively(filePath, allFiles);
-                } else {
-                    allFiles.push(filePath);
-                }
-            });
+function readDirectory(directoryPath) {
+    return new Promise((resolve, reject) => {
+        fs.readdir(directoryPath, (err, files) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            resolve(files.filter(file => !fs.statSync(path.join(directoryPath, file)).isDirectory()));
         });
-        return allFiles;
-    }
-    const files = readFilesRecursively(`datastores/${datastoreName}`);
-    const urlFiles = [];
-    // Filter for urls.txt files
-    let allUrls = [];
-    urlFiles.forEach(file => {
-        if (fs.existsSync(file)) {
-            const data = fs.readFileSync(urlsFilePath, 'utf8');
-            const urls = data.split(/\r?\n/);
-            urls.forEach(url => {
-                allUrls.push(url);
-            });
-        }
     });
-    return { files: filteredFiles, urls: allUrls };
+}
+
+function readFullDirectory(directoryPath) {
+    function readFilesRecursively(dir) {
+        const filesInDir = fs.readdirSync(dir);
+        const files = filesInDir.flatMap(file => {
+            const filePath = path.join(dir, file);
+            const stat = fs.statSync(filePath);
+            if (stat.isDirectory()) {
+                return readFullDirectory(filePath);
+            } else {
+                return filePath;
+            }
+        });
+        return files;
+    }
+    return readFilesRecursively(directoryPath);
+}
+
+async function understandYourself() {
+    let backendFiles = [
+        "config.json",
+        "index.js",
+        "index.test.js",
+        "notes.txt",
+        "package.json"
+    ];
+    const directoryFiles = readFullDirectory("components");
+    backendFiles = backendFiles.concat(directoryFiles);
+    let frontendFiles = [
+        "frontendUI/package.json",
+        "frontendUI/src/App.js",
+        "frontendUI/src/App.css"
+    ];
+    frontendFiles = frontendFiles.concat(readFullDirectory("frontendUI/src/Components"));
+    const vectorstore = vectorstores.createVectorstore("self");
+    backendFiles.forEach(file => {
+        const ids = vectorstores.addDocument(file);
+    });
+    frontendFiles.forEach(file => {
+        const ids = vectorstores.addDocument(file);
+    });
+    return vectorstore;
 }
 
 async function sleep(ms) {
@@ -247,6 +254,13 @@ app.post('', () => {})
 
 //Create default self vectorstore
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-})
+async function main() {
+    const selfStore = await understandYourself();
+    knowledgeBase['self'] = self;
+
+    app.listen(port, () => {
+        console.log(`Server running at http://localhost:${port}`);
+    });
+}
+
+main();
